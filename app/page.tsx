@@ -23,27 +23,39 @@ export default function Home() {
     if (!file) return;
     
     setIsProcessing(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('ranges', JSON.stringify(ranges));
 
     try {
-      const response = await fetch('/api/split-pdf', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
+      const arrayBuffer = await file.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(arrayBuffer);
+      const totalPages = pdfDoc.getPageCount();
       
-      if (result.files) {
-        const links = result.files.map((fileData: any) => ({
-          name: fileData.name,
-          url: URL.createObjectURL(new Blob([new Uint8Array(fileData.data)], { type: 'application/pdf' }))
-        }));
-        setDownloadLinks(links);
+      const results = [];
+
+      for (const range of ranges) {
+        const newPdfDoc = await PDFDocument.create();
+        const [start, end] = range.includes('-') 
+          ? range.split('-').map(Number)
+          : [Number(range), Number(range)];
+
+        const pageIndices = [];
+        for (let i = start - 1; i < Math.min(end, totalPages); i++) {
+          pageIndices.push(i);
+        }
+
+        const copiedPages = await newPdfDoc.copyPages(pdfDoc, pageIndices);
+        copiedPages.forEach(page => newPdfDoc.addPage(page));
+
+        const pdfBytes = await newPdfDoc.save();
+        results.push({
+          name: `${file.name.replace('.pdf', '')}_pages_${range}.pdf`,
+          url: URL.createObjectURL(new Blob([pdfBytes], { type: 'application/pdf' }))
+        });
       }
+      
+      setDownloadLinks(results);
     } catch (error) {
       console.error('Error splitting PDF:', error);
+      alert('Error splitting PDF. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -181,7 +193,7 @@ export default function Home() {
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      Files are processed locally in your browser. No data is sent to servers.
+                      All processing happens in your browser. No files are uploaded to any server.
                     </p>
                   </div>
                 </div>
