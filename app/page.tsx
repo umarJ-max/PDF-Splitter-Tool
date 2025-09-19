@@ -48,7 +48,7 @@ export default function Home() {
         const pdfBytes = await newPdfDoc.save();
         results.push({
           name: `${file.name.replace('.pdf', '')}_pages_${range}.pdf`,
-          url: URL.createObjectURL(new Blob([pdfBytes], { type: 'application/pdf' }))
+          url: URL.createObjectURL(new Blob([pdfBytes.buffer], { type: 'application/pdf' }))
         });
       }
       
